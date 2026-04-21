@@ -1,0 +1,306 @@
+<routes>
+
+    <vType id="car"    accel="2.6" decel="4.5" sigma="0.5" length="5"   maxSpeed="50" color="0.8,0.8,0.8"/>
+    <vType id="truck"  accel="1.3" decel="3.5" sigma="0.4" length="12"  maxSpeed="40" color="0.6,0.4,0.2"/>
+    <vType id="moto"   accel="3.5" decel="5.0" sigma="0.6" length="2.5" maxSpeed="60" color="0.2,0.2,0.8"/>
+    <vehicle id="bg_16" type="car" depart="0">
+        <route edges="132474427#2 -236662694#0"/>
+    </vehicle>
+    <vehicle id="bg_43" type="car" depart="3">
+        <route edges="-236495369#1 132474402#1"/>
+    </vehicle>
+    <vehicle id="bg_74" type="car" depart="4">
+        <route edges="-558902452#5 66320572#3"/>
+    </vehicle>
+    <vehicle id="bg_48" type="car" depart="6">
+        <route edges="678909319#2 990930609#7"/>
+    </vehicle>
+    <vehicle id="bg_9" type="car" depart="11">
+        <route edges="236662694#0 371337124#0"/>
+    </vehicle>
+    <vehicle id="bg_24" type="truck" depart="15">
+        <route edges="1119582623#1 40784890#3"/>
+    </vehicle>
+    <vehicle id="bg_75" type="car" depart="16">
+        <route edges="132474427#0 152447452#2"/>
+    </vehicle>
+    <vehicle id="bg_35" type="car" depart="24">
+        <route edges="-66939010#0 -51774227"/>
+    </vehicle>
+    <vehicle id="bg_96" type="car" depart="28">
+        <route edges="621990109#5 -694745766#1"/>
+    </vehicle>
+    <vehicle id="bg_51" type="truck" depart="29">
+        <route edges="1018486129#0 236662694#1"/>
+    </vehicle>
+    <vehicle id="bg_61" type="car" depart="35">
+        <route edges="-694745766#1 860233208"/>
+    </vehicle>
+    <vehicle id="bg_47" type="moto" depart="36">
+        <route edges="-694745766#1 152447453#1"/>
+    </vehicle>
+    <vehicle id="bg_67" type="car" depart="46">
+        <route edges="132474401 51815602#7"/>
+    </vehicle>
+    <vehicle id="bg_36" type="truck" depart="49">
+        <route edges="236409580#0 860233209"/>
+    </vehicle>
+    <vehicle id="bg_83" type="moto" depart="54">
+        <route edges="132474411#3 40784890#0"/>
+    </vehicle>
+    <vehicle id="bg_78" type="moto" depart="65">
+        <route edges="132474412#13 583944757#4"/>
+    </vehicle>
+    <vehicle id="bg_77" type="truck" depart="77">
+        <route edges="132474403 -66939035#1"/>
+    </vehicle>
+    <vehicle id="bg_62" type="car" depart="82">
+        <route edges="132474411#2 66320572#3"/>
+    </vehicle>
+    <vehicle id="bg_33" type="car" depart="86">
+        <route edges="66939014#2 1185549445#2"/>
+    </vehicle>
+    <vehicle id="bg_80" type="car" depart="100">
+        <route edges="66320583#3 1119582623#1"/>
+    </vehicle>
+    <vehicle id="bg_6" type="moto" depart="103">
+        <route edges="152447453#4 558902452#6"/>
+    </vehicle>
+    <vehicle id="bg_52" type="car" depart="109">
+        <route edges="621990109#4 -215223488#0"/>
+    </vehicle>
+    <vehicle id="bg_31" type="truck" depart="111">
+        <route edges="688633734#1 51774227"/>
+    </vehicle>
+    <vehicle id="bg_54" type="car" depart="119">
+        <route edges="132474430#2 53726649#1"/>
+    </vehicle>
+    <vehicle id="bg_89" type="moto" depart="147">
+        <route edges="132474431#3 583944757#1"/>
+    </vehicle>
+    <vehicle id="bg_2" type="moto" depart="154">
+        <route edges="66320583#3 132474424#1"/>
+    </vehicle>
+    <vehicle id="bg_13" type="truck" depart="158">
+        <route edges="-558902452#1 236594017#2"/>
+    </vehicle>
+    <vehicle id="bg_57" type="truck" depart="167">
+        <route edges="238271790#1 1185549443"/>
+    </vehicle>
+    <vehicle id="bg_99" type="car" depart="172">
+        <route edges="132474412#4 -236594017#3"/>
+    </vehicle>
+    <vehicle id="bg_32" type="car" depart="173">
+        <route edges="132474408#2 478458068#1"/>
+    </vehicle>
+    <vehicle id="bg_4" type="moto" depart="174">
+        <route edges="236594015#1 40781018#3"/>
+    </vehicle>
+    <vehicle id="bg_26" type="car" depart="180">
+        <route edges="-236464875#2 132474412#1"/>
+    </vehicle>
+    <vehicle id="bg_60" type="car" depart="196">
+        <route edges="1210849711#1 132474412#1"/>
+    </vehicle>
+    <vehicle id="bg_86" type="car" depart="205">
+        <route edges="236167003#1 51815602#4"/>
+    </vehicle>
+    <vehicle id="bg_40" type="car" depart="214">
+        <route edges="236488977 -1185549443"/>
+    </vehicle>
+    <vehicle id="bg_56" type="car" depart="216">
+        <route edges="583944757#6 53726657#4"/>
+    </vehicle>
+    <vehicle id="bg_45" type="moto" depart="217">
+        <route edges="158103231#2 183616149#0"/>
+    </vehicle>
+    <vehicle id="bg_12" type="car" depart="222">
+        <route edges="132474410#7 163920171#1"/>
+    </vehicle>
+    <vehicle id="bg_98" type="car" depart="225">
+        <route edges="51815602#0 860233209"/>
+    </vehicle>
+    <vehicle id="bg_44" type="car" depart="235">
+        <route edges="236167003#2 40785182#0"/>
+    </vehicle>
+    <vehicle id="bg_97" type="moto" depart="236">
+        <route edges="132474408#4 -706999045"/>
+    </vehicle>
+    <vehicle id="bg_71" type="moto" depart="249">
+        <route edges="152447453#1 -558902452#5"/>
+    </vehicle>
+    <vehicle id="bg_93" type="truck" depart="257">
+        <route edges="139879927#4 558902452#6"/>
+    </vehicle>
+    <vehicle id="bg_91" type="car" depart="265">
+        <route edges="132698944#1 235477242#1"/>
+    </vehicle>
+    <vehicle id="bg_23" type="truck" depart="270">
+        <route edges="235737652#0 236409580#0"/>
+    </vehicle>
+    <vehicle id="bg_37" type="car" depart="285">
+        <route edges="66320561 235463556#3"/>
+    </vehicle>
+    <vehicle id="bg_38" type="car" depart="305">
+        <route edges="40781018#0 236662694#1"/>
+    </vehicle>
+    <vehicle id="bg_11" type="car" depart="306">
+        <route edges="688633733#1 583944757#1"/>
+    </vehicle>
+    <vehicle id="bg_39" type="car" depart="325">
+        <route edges="132474412#7 51815602#4"/>
+    </vehicle>
+    <vehicle id="bg_30" type="moto" depart="328">
+        <route edges="236488979#2 -66939014#1"/>
+    </vehicle>
+    <vehicle id="bg_42" type="car" depart="330">
+        <route edges="51774237#3 371337124#0"/>
+    </vehicle>
+    <vehicle id="bg_3" type="truck" depart="334">
+        <route edges="990930609#0 236464875#0"/>
+    </vehicle>
+    <vehicle id="bg_5" type="truck" depart="356">
+        <route edges="236662690 1016525519"/>
+    </vehicle>
+    <vehicle id="bg_34" type="car" depart="358">
+        <route edges="132474412#7 1185549445#2"/>
+    </vehicle>
+    <vehicle id="bg_92" type="car" depart="358">
+        <route edges="-228407774 1020530409#2"/>
+    </vehicle>
+    <vehicle id="bg_17" type="car" depart="366">
+        <route edges="51815602#5 478458068#0"/>
+    </vehicle>
+    <vehicle id="bg_66" type="truck" depart="366">
+        <route edges="132474412#3 235253308#0"/>
+    </vehicle>
+    <vehicle id="bg_21" type="moto" depart="368">
+        <route edges="236409580#1 688633729#1"/>
+    </vehicle>
+    <vehicle id="bg_88" type="car" depart="373">
+        <route edges="584487534 -694745766#1"/>
+    </vehicle>
+    <vehicle id="bg_22" type="car" depart="378">
+        <route edges="66939010#1 -66939040#2"/>
+    </vehicle>
+    <vehicle id="bg_59" type="car" depart="396">
+        <route edges="66939014#2 132474427#2"/>
+    </vehicle>
+    <vehicle id="bg_29" type="moto" depart="399">
+        <route edges="678909317#0 40781484#1"/>
+    </vehicle>
+    <vehicle id="bg_76" type="car" depart="399">
+        <route edges="235477242#1 132698944#2"/>
+    </vehicle>
+    <vehicle id="bg_94" type="car" depart="399">
+        <route edges="-235271673#2 -66939014#4"/>
+    </vehicle>
+    <vehicle id="bg_28" type="car" depart="415">
+        <route edges="558902452#0 -1018486121"/>
+    </vehicle>
+    <vehicle id="bg_58" type="car" depart="425">
+        <route edges="40781484#3 51774237#3"/>
+    </vehicle>
+    <vehicle id="bg_79" type="moto" depart="431">
+        <route edges="132474410#6 236409580#1"/>
+    </vehicle>
+    <vehicle id="bg_18" type="car" depart="434">
+        <route edges="152447453#7 236167003#1"/>
+    </vehicle>
+    <vehicle id="bg_63" type="car" depart="436">
+        <route edges="-158103231#2 66939014#2"/>
+    </vehicle>
+    <vehicle id="bg_15" type="car" depart="445">
+        <route edges="132474424#2 706999044#2"/>
+    </vehicle>
+    <vehicle id="bg_20" type="car" depart="445">
+        <route edges="44178506#2 -236488979#1"/>
+    </vehicle>
+    <vehicle id="bg_70" type="truck" depart="445">
+        <route edges="132474412#5 706999044#2"/>
+    </vehicle>
+    <vehicle id="bg_7" type="moto" depart="449">
+        <route edges="-66939014#4 -158103231#2"/>
+    </vehicle>
+    <vehicle id="bg_1" type="truck" depart="450">
+        <route edges="236464875#1 990930609#7"/>
+    </vehicle>
+    <vehicle id="bg_46" type="car" depart="451">
+        <route edges="584487535#0 163920171#0"/>
+    </vehicle>
+    <vehicle id="bg_82" type="truck" depart="452">
+        <route edges="40781484#1 -51774227"/>
+    </vehicle>
+    <vehicle id="bg_72" type="moto" depart="477">
+        <route edges="132474411#3 139879927#5"/>
+    </vehicle>
+    <vehicle id="bg_68" type="car" depart="490">
+        <route edges="236488979#1 -558902452#1"/>
+    </vehicle>
+    <vehicle id="bg_0" type="moto" depart="492">
+        <route edges="66939014#3 688633734#2"/>
+    </vehicle>
+    <vehicle id="bg_64" type="car" depart="495">
+        <route edges="584487535#1 -132474402#1"/>
+    </vehicle>
+    <vehicle id="bg_84" type="car" depart="495">
+        <route edges="132474430#1 694745767#11"/>
+    </vehicle>
+    <vehicle id="bg_85" type="car" depart="496">
+        <route edges="694745767#1 66939014#1"/>
+    </vehicle>
+    <vehicle id="bg_19" type="car" depart="510">
+        <route edges="236464869 163920172#1"/>
+    </vehicle>
+    <vehicle id="bg_41" type="moto" depart="512">
+        <route edges="-215223503 132474423"/>
+    </vehicle>
+    <vehicle id="bg_8" type="car" depart="515">
+        <route edges="66320572#3 139879927#4"/>
+    </vehicle>
+    <vehicle id="bg_81" type="car" depart="519">
+        <route edges="66320573#0 236594017#3"/>
+    </vehicle>
+    <vehicle id="bg_14" type="moto" depart="522">
+        <route edges="132474423 -1018486128"/>
+    </vehicle>
+    <vehicle id="bg_25" type="moto" depart="534">
+        <route edges="236662694#0 152447453#1"/>
+    </vehicle>
+    <vehicle id="bg_10" type="car" depart="546">
+        <route edges="236464875#0 694745767#10"/>
+    </vehicle>
+    <vehicle id="bg_27" type="truck" depart="547">
+        <route edges="1018486127#2 132474410#7"/>
+    </vehicle>
+    <vehicle id="bg_49" type="car" depart="550">
+        <route edges="-51774241#0 235737645#1"/>
+    </vehicle>
+    <vehicle id="bg_73" type="moto" depart="554">
+        <route edges="66320572#3 66320572#2"/>
+    </vehicle>
+    <vehicle id="bg_87" type="car" depart="559">
+        <route edges="694648170 1020530409#2"/>
+    </vehicle>
+    <vehicle id="bg_55" type="truck" depart="565">
+        <route edges="-478458068#1 66320576#3"/>
+    </vehicle>
+    <vehicle id="bg_50" type="car" depart="566">
+        <route edges="228500125#1 -132474414#0"/>
+    </vehicle>
+    <vehicle id="bg_95" type="truck" depart="576">
+        <route edges="688633729#3 -236488979#1"/>
+    </vehicle>
+    <vehicle id="bg_53" type="car" depart="585">
+        <route edges="342692384#0 688633735#2"/>
+    </vehicle>
+    <vehicle id="bg_69" type="car" depart="589">
+        <route edges="40781484#3 53726652#0"/>
+    </vehicle>
+    <vehicle id="bg_90" type="car" depart="594">
+        <route edges="40781018#2 -66939035#0"/>
+    </vehicle>
+    <vehicle id="bg_65" type="car" depart="600">
+        <route edges="66939040#0 678909319#2"/>
+    </vehicle>
+</routes>
