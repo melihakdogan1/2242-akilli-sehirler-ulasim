@@ -1,17 +1,14 @@
 """
-rl_agent.py
-===========
-DQN tabanlı Takviyeli Öğrenme ajanı.
-SUMO/TraCI ortamında dinamik rota yeniden hesaplama yapar.
-
-Mimari:
-  State  → 3 boyutlu vektör (konum, hedef mesafesi, önündeki yoğunluk)
-  Action → 4 ayrık eylem  (ileri, sağa, sola, bekle)
-  Reward → +100 hedefe varış / -10 trafik cezası / -1 her adım
-
-Kullanım:
-    python rl_agent.py --train     # Eğitim modu
-    python rl_agent.py --test      # Test modu (eğitilmiş ağırlıkları yükler)
+rl_agent.py  (v3 — Final)
+=========================
+Değişiklikler v2 → v3:
+  - STATE_SIZE 6 → 8: ilerideki 3 kenarın yoğunluğu da state'e eklendi
+  - Dur-kalk CO2 cezası eklendi (speed < 1.0 m/s → -2 puan)
+  - EPISODES 300 → 3000, EPSILON_DECAY 0.995 → 0.9985
+  - MEMORY_SIZE 10k → 50k
+  - DQN gizli katmanlar 64 → 128 nöron
+  - En iyi ağırlıklar ayrıca _best.h5 olarak kaydediliyor
+  - NET_FILE: osm_cleaned.net.xml
 """
 
 import argparse
@@ -22,7 +19,6 @@ from collections import deque
 
 import numpy as np
 
-# Derin öğrenme: önce tensorflow dene, yoksa numpy tabanlı Q-table kullan
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -30,80 +26,61 @@ try:
     print("[RL] TensorFlow bulundu — DQN modu aktif.")
 except ImportError:
     DL_AVAILABLE = False
-    print("[RL] TensorFlow bulunamadı — Q-Table (tabular) moduna geçildi.")
+    print("[RL] TensorFlow bulunamadı — Q-Table moduna geçildi.")
 
 import traci
 
-# -------------------------------------------------------------------
-# YAPILANDIRMA
-# -------------------------------------------------------------------
-NET_FILE        = "osm.net.xml.gz"
-WEIGHTS_FILE    = "dqn_weights.weights.h5"
-QTABLE_FILE     = "q_table.pkl"
+NET_FILE     = "osm_cleaned.net.xml"
+WEIGHTS_FILE = "dqn_weights.weights.h5"
+QTABLE_FILE  = "q_table.pkl"
 
-STATE_SIZE      = 6     # [x, y, hedef_x, hedef_y, yoğunluk_ileri, yoğunluk_sağ/sol]
-ACTION_SIZE     = 4     # ileri=0, sağa=1, sola=2, bekle=3
+STATE_SIZE  = 8    # [x, y, gx, gy, d0, d1, d2, d3]
+ACTION_SIZE = 4    # ileri, saga, sola, bekle
 
-EPISODES        = 300
-MAX_STEPS       = 500
-BATCH_SIZE      = 64
-MEMORY_SIZE     = 10_000
+EPISODES     = 3000
+MAX_STEPS    = 1000
+BATCH_SIZE   = 64
+MEMORY_SIZE  = 50_000
 
-GAMMA           = 0.95      # Gelecek ödül indirim faktörü
-EPSILON_START   = 1.0       # Keşif oranı başlangıç
-EPSILON_END     = 0.05      # Minimum keşif
-EPSILON_DECAY   = 0.995     # Her bölüm sonunda düş
-LEARNING_RATE   = 0.001
+GAMMA         = 0.95
+EPSILON_START = 1.0
+EPSILON_END   = 0.05
+EPSILON_DECAY = 0.9985
+LEARNING_RATE = 0.001
 
-REWARD_GOAL_REACHED   =  100.0
-REWARD_TRAFFIC_PENALTY = -10.0
-REWARD_STEP_COST       =  -1.0
-REWARD_WRONG_TURN      =  -5.0
-TRAFFIC_THRESHOLD       =  8     # Kaç araç varsa "tıkalı" kabul edilir
+REWARD_GOAL_REACHED    =  100.0
+REWARD_TRAFFIC_PENALTY =  -10.0
+REWARD_STEP_COST       =   -1.0
+REWARD_SLOW_PENALTY    =   -2.0
+TRAFFIC_THRESHOLD      =   8
 
 
-# ===================================================================
-# 1. ORTAM SARMALAYICI  (SUMO ↔ Gym benzeri arayüz)
-# ===================================================================
 class SUMOEnv:
-    """
-    SUMO simülasyonunu standart Gym benzeri bir arayüze sarar.
-    Her episode'da araç sıfırlanır, hedef rastgele seçilir.
-    """
-
     def __init__(self, net_file: str, initial_route: list[str] | None = None):
         import sumolib
         self.net = sumolib.net.readNet(net_file)
         self.edges = [
             e for e in self.net.getEdges()
-            # DÜZELTME 1: RL aracımız sadece araç yollarını (passenger) seçsin!
             if not e.getID().startswith(":") and e.allows("passenger")
         ]
-        self.initial_route = initial_route   # GA'dan gelen rota
-        self.agent_id      = "delivery_vehicle"
-        self.current_edge  = None
-        self.goal_edge     = None
-        self.step_count    = 0
-
-    # ------------------------------------------------------------------
-    def reset(self) -> np.ndarray:
-        """Yeni bölüm başlatır. Araç konumunu ve hedefi sıfırlar."""
+        self.initial_route = initial_route
+        self.agent_id   = "delivery_vehicle"
+        self.goal_edge  = None
         self.step_count = 0
 
-        # Eski aracı (eğer hala yoldaysa) kaldırmayı dene
+    def reset(self) -> np.ndarray:
+        self.step_count = 0
         try:
             if self.agent_id in traci.vehicle.getIDList():
                 traci.vehicle.remove(self.agent_id)
-        except:
+        except Exception:
             pass
 
-        # ÇÖZÜM: Her bölüm için yepyeni bir ARAÇ ID'si ve ROTA ID'si üretiyoruz!
-        self.agent_id = f"rl_car_{random.randint(100000, 999999)}"
+        self.agent_id   = f"rl_car_{random.randint(100000, 999999)}"
         unique_route_id = f"agent_route_{random.randint(100000, 999999)}"
 
-        # Başlangıç konumu: GA rotasının ilk noktası veya rastgele
         if self.initial_route:
-            start_edge = self.initial_route[0]
+            start_edge     = self.initial_route[0]
             self.goal_edge = self.initial_route[-1]
         else:
             start_edge     = random.choice(self.edges).getID()
@@ -111,66 +88,51 @@ class SUMOEnv:
             while self.goal_edge == start_edge:
                 self.goal_edge = random.choice(self.edges).getID()
 
-        self.current_edge = start_edge
-
-        # Aracı simülasyona ekle
         try:
             traci.route.add(unique_route_id, [start_edge])
             traci.vehicle.add(self.agent_id, unique_route_id, typeID="car")
             traci.vehicle.changeTarget(self.agent_id, self.goal_edge)
             traci.simulationStep()
         except traci.exceptions.TraCIException as e:
-            print(f"[Env] Reset hatası: {e}")
+            print(f"[Env] Reset hatasi: {e}")
 
         return self._get_state()
 
-    # ------------------------------------------------------------------
     def _get_state(self) -> np.ndarray:
-        """
-        State vektörü: [norm_x, norm_y, norm_gx, norm_gy, yoğunluk_1, yoğunluk_2]
-        """
         try:
             if self.agent_id not in traci.vehicle.getIDList():
                 return np.zeros(STATE_SIZE, dtype=np.float32)
 
-            # Anlık konum
             x, y   = traci.vehicle.getPosition(self.agent_id)
-            # Hedef kenarın merkezi
             goal_e = self.net.getEdge(self.goal_edge)
-            gx     = (goal_e.getFromNode().getCoord()[0] + goal_e.getToNode().getCoord()[0]) / 2
-            gy     = (goal_e.getFromNode().getCoord()[1] + goal_e.getToNode().getCoord()[1]) / 2
+            gx = (goal_e.getFromNode().getCoord()[0] + goal_e.getToNode().getCoord()[0]) / 2
+            gy = (goal_e.getFromNode().getCoord()[1] + goal_e.getToNode().getCoord()[1]) / 2
+            X_MAX = Y_MAX = 5000.0
 
-            # Normalizasyon sınırları (Kadıköy haritası için yaklaşık)
-            X_MAX, Y_MAX = 5000.0, 5000.0
+            route_edges = traci.vehicle.getRoute(self.agent_id)
+            route_idx   = traci.vehicle.getRouteIndex(self.agent_id)
 
-            # Araç önündeki 2 kenardaki yoğunluk
-            current_edge = traci.vehicle.getRoadID(self.agent_id)
-            density1     = min(traci.edge.getLastStepVehicleNumber(current_edge), 20) / 20.0
-            # Komşu kenar
-            edges_ahead  = traci.vehicle.getNextTLS(self.agent_id)
-            density2     = 0.0
-            if edges_ahead:
-                next_edge_id = current_edge  # Basitleştirilmiş
-                density2 = min(traci.edge.getLastStepVehicleNumber(next_edge_id), 20) / 20.0
+            def ahead_density(offset: int) -> float:
+                idx = route_idx + offset
+                if 0 <= idx < len(route_edges):
+                    return min(traci.edge.getLastStepVehicleNumber(route_edges[idx]), 20) / 20.0
+                return 0.0
 
             return np.array([
                 x / X_MAX,
                 y / Y_MAX,
                 gx / X_MAX,
                 gy / Y_MAX,
-                density1,
-                density2
+                ahead_density(0),
+                ahead_density(1),
+                ahead_density(2),
+                ahead_density(3),
             ], dtype=np.float32)
 
         except traci.exceptions.TraCIException:
             return np.zeros(STATE_SIZE, dtype=np.float32)
 
-    # ------------------------------------------------------------------
     def step(self, action: int) -> tuple[np.ndarray, float, bool]:
-        """
-        Eylemi uygular, simülasyonu bir adım ilerletir.
-        Returns: (next_state, reward, done)
-        """
         self.step_count += 1
         reward = REWARD_STEP_COST
         done   = False
@@ -179,303 +141,251 @@ class SUMOEnv:
             if self.agent_id not in traci.vehicle.getIDList():
                 return np.zeros(STATE_SIZE, dtype=np.float32), reward, True
 
-            current_edge = traci.vehicle.getRoadID(self.agent_id)
-            density      = traci.edge.getLastStepVehicleNumber(current_edge)
+            current_edge  = traci.vehicle.getRoadID(self.agent_id)
+            density       = traci.edge.getLastStepVehicleNumber(current_edge)
+            current_speed = traci.vehicle.getSpeed(self.agent_id)
 
-            # Trafik cezası
             if density > TRAFFIC_THRESHOLD:
                 reward += REWARD_TRAFFIC_PENALTY
 
-            # Eylem: RL'nin kararına göre rota değiştir
-            if action in (1, 2):  # Sağa veya sola
-                # Alternatif rotaya yönlendir
-                alt_goal = random.choice(self.edges).getID()
+            if current_speed < 1.0:
+                reward += REWARD_SLOW_PENALTY
+
+            if action in (1, 2):
                 try:
                     traci.vehicle.rerouteTraveltime(self.agent_id)
                 except Exception:
                     pass
-
-            elif action == 3:  # Bekle
+            elif action == 3:
                 traci.vehicle.setSpeed(self.agent_id, 0)
-                reward += -2  # Ekstra bekleme cezası
-            else:             # İleri — hızı normale döndür
-                traci.vehicle.setSpeed(self.agent_id, -1)  # -1 = SUMO'nun kendi hızı
+            else:
+                traci.vehicle.setSpeed(self.agent_id, -1)
 
             traci.simulationStep()
             next_state = self._get_state()
 
-            # Hedefe varış kontrolü
-            current_edge = traci.vehicle.getRoadID(self.agent_id) if self.agent_id in traci.vehicle.getIDList() else ""
-            if current_edge == self.goal_edge or self.agent_id not in traci.vehicle.getIDList():
+            current_edge = traci.vehicle.getRoadID(self.agent_id) \
+                if self.agent_id in traci.vehicle.getIDList() else ""
+            if current_edge == self.goal_edge or \
+               self.agent_id not in traci.vehicle.getIDList():
                 reward += REWARD_GOAL_REACHED
                 done = True
 
-            # Maksimum adım
             if self.step_count >= MAX_STEPS:
                 done = True
 
-        except traci.exceptions.TraCIException as e:
+        except traci.exceptions.TraCIException:
             next_state = np.zeros(STATE_SIZE, dtype=np.float32)
             done = True
 
         return next_state, reward, done
 
 
-# ===================================================================
-# 2. DQN MODELİ  (TensorFlow varsa)
-# ===================================================================
 def build_dqn_model(state_size: int, action_size: int):
-    """
-    İki gizli katmanlı tam bağlı sinir ağı.
-    Çıktı: Her eylem için Q-değeri.
-    """
     model = keras.Sequential([
-        keras.layers.Dense(64, activation="relu", input_shape=(state_size,)),
-        keras.layers.Dense(64, activation="relu"),
-        keras.layers.Dense(32, activation="relu"),
-        keras.layers.Dense(action_size, activation="linear")
+        keras.layers.Input(shape=(state_size,)),
+        keras.layers.Dense(128, activation="relu"),
+        keras.layers.Dense(128, activation="relu"),
+        keras.layers.Dense(64,  activation="relu"),
+        keras.layers.Dense(action_size, activation="linear"),
     ])
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=LEARNING_RATE), loss="mse")
+    model.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=LEARNING_RATE),
+        loss="mse"
+    )
     return model
 
 
 class DQNAgent:
-    """Deep Q-Network ajanı (Experience Replay + Target Network)."""
-
     def __init__(self, state_size: int = STATE_SIZE, action_size: int = ACTION_SIZE):
         self.state_size  = state_size
         self.action_size = action_size
         self.epsilon     = EPSILON_START
-
-        self.memory         = deque(maxlen=MEMORY_SIZE)
-        self.model          = build_dqn_model(state_size, action_size)
-        self.target_model   = build_dqn_model(state_size, action_size)
+        self.memory       = deque(maxlen=MEMORY_SIZE)
+        self.model        = build_dqn_model(state_size, action_size)
+        self.target_model = build_dqn_model(state_size, action_size)
         self.update_target()
-
         self._train_step = 0
 
     def update_target(self):
-        """Hedef ağı güncelle (periyodik)."""
         self.target_model.set_weights(self.model.get_weights())
 
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done))
+    def remember(self, s, a, r, s2, done):
+        self.memory.append((s, a, r, s2, done))
 
     def act(self, state: np.ndarray) -> int:
-        """ε-greedy politikası ile eylem seç."""
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        q_values = self.model.predict(state[np.newaxis], verbose=0)
-        return int(np.argmax(q_values[0]))
+        q = self.model.predict(state[np.newaxis], verbose=0)
+        return int(np.argmax(q[0]))
 
     def replay(self):
-        """Bellekten mini-batch örnekle ve sinir ağını güncelle."""
         if len(self.memory) < BATCH_SIZE:
             return
-
-        batch = random.sample(self.memory, BATCH_SIZE)
+        batch       = random.sample(self.memory, BATCH_SIZE)
         states      = np.array([t[0] for t in batch])
         actions     = np.array([t[1] for t in batch])
         rewards     = np.array([t[2] for t in batch])
         next_states = np.array([t[3] for t in batch])
         dones       = np.array([t[4] for t in batch])
 
-        # Bellman denklemi ile hedef Q hesapla
-        q_current = self.model.predict(states, verbose=0)
-        q_next    = self.target_model.predict(next_states, verbose=0)
+        q_cur  = self.model.predict(states,      verbose=0)
+        q_next = self.target_model.predict(next_states, verbose=0)
 
         for i in range(BATCH_SIZE):
-            target = rewards[i]
-            if not dones[i]:
-                target += GAMMA * np.max(q_next[i])
-            q_current[i][actions[i]] = target
+            target = rewards[i] + (0 if dones[i] else GAMMA * np.max(q_next[i]))
+            q_cur[i][actions[i]] = target
 
-        self.model.fit(states, q_current, epochs=1, verbose=0)
+        self.model.fit(states, q_cur, epochs=1, verbose=0)
         self._train_step += 1
 
-        # Her 10 eğitimde hedef ağı güncelle
         if self._train_step % 10 == 0:
             self.update_target()
 
-        # Epsilon azalt
-        if self.epsilon > EPSILON_END:
-            self.epsilon *= EPSILON_DECAY
-
     def save(self, path: str = WEIGHTS_FILE):
         self.model.save_weights(path)
-        print(f"[DQN] Ağırlıklar kaydedildi → {path}")
+        print(f"[DQN] Kaydedildi -> {path}")
 
     def load(self, path: str = WEIGHTS_FILE):
         if os.path.exists(path):
             self.model.load_weights(path)
             self.update_target()
-            self.epsilon = EPSILON_END  # Test modunda keşif yok
-            print(f"[DQN] Ağırlıklar yüklendi ← {path}")
+            self.epsilon = EPSILON_END
+            print(f"[DQN] Yuklendi <- {path}")
         else:
-            print(f"[DQN] Ağırlık dosyası bulunamadı: {path}")
+            print(f"[DQN] Agirlik bulunamadi: {path}")
 
 
-# ===================================================================
-# 3. Q-TABLE (TensorFlow yoksa)
-# ===================================================================
 class QTableAgent:
-    """
-    Basit tabular Q-Learning.
-    State, ayrık bölmelere (bin) dönüştürülür.
-    """
-
-    def __init__(self, state_size: int = STATE_SIZE, action_size: int = ACTION_SIZE, bins: int = 10):
+    def __init__(self, state_size=STATE_SIZE, action_size=ACTION_SIZE, bins=10):
         self.action_size = action_size
-        self.bins        = bins
-        self.epsilon     = EPSILON_START
+        self.bins    = bins
+        self.epsilon = EPSILON_START
         self.q_table: dict = {}
 
-    def _discretize(self, state: np.ndarray) -> tuple:
-        return tuple((state * self.bins).astype(int))
+    def _d(self, state): return tuple((state * self.bins).astype(int))
 
-    def act(self, state: np.ndarray) -> int:
+    def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        key = self._discretize(state)
-        if key not in self.q_table:
-            return random.randrange(self.action_size)
-        return int(np.argmax(self.q_table[key]))
+        k = self._d(state)
+        return int(np.argmax(self.q_table.get(k, np.zeros(self.action_size))))
 
-    def learn(self, state, action, reward, next_state, done):
-        key      = self._discretize(state)
-        next_key = self._discretize(next_state)
-
-        if key not in self.q_table:
-            self.q_table[key] = np.zeros(self.action_size)
-        if next_key not in self.q_table:
-            self.q_table[next_key] = np.zeros(self.action_size)
-
-        td_target = reward + (0 if done else GAMMA * np.max(self.q_table[next_key]))
-        self.q_table[key][action] += LEARNING_RATE * (td_target - self.q_table[key][action])
-
+    def learn(self, s, a, r, s2, done):
+        k, k2 = self._d(s), self._d(s2)
+        if k  not in self.q_table: self.q_table[k]  = np.zeros(self.action_size)
+        if k2 not in self.q_table: self.q_table[k2] = np.zeros(self.action_size)
+        td = r + (0 if done else GAMMA * np.max(self.q_table[k2]))
+        self.q_table[k][a] += LEARNING_RATE * (td - self.q_table[k][a])
         if self.epsilon > EPSILON_END:
             self.epsilon *= EPSILON_DECAY
 
-    def save(self, path: str = QTABLE_FILE):
-        with open(path, "wb") as f:
-            pickle.dump(self.q_table, f)
-        print(f"[Q-Table] Kaydedildi → {path}")
+    def save(self, path=QTABLE_FILE):
+        with open(path, "wb") as f: pickle.dump(self.q_table, f)
+        print(f"[Q-Table] Kaydedildi -> {path}")
 
-    def load(self, path: str = QTABLE_FILE):
+    def load(self, path=QTABLE_FILE):
         if os.path.exists(path):
-            with open(path, "rb") as f:
-                self.q_table = pickle.load(f)
+            with open(path, "rb") as f: self.q_table = pickle.load(f)
             self.epsilon = EPSILON_END
-            print(f"[Q-Table] Yüklendi ← {path}")
+            print(f"[Q-Table] Yuklendi <- {path}")
 
 
-# ===================================================================
-# 4. EĞİTİM DÖNGÜSÜ
-# ===================================================================
 def train(initial_route: list[str] | None = None):
-    """
-    Ana eğitim döngüsü.
-    initial_route: GA'dan gelen edge ID listesi (opsiyonel)
-    """
-    from background_traffic import BackgroundTrafficManager, generate_sumo_config, SUMO_CFG_FILE, SUMO_BINARY
-
-    # DÜZELTME 2: İf bloğunu sildik. Her eğitimde trafiği baştan, hatasız olarak kursun.
+    from background_traffic import (
+        BackgroundTrafficManager, generate_sumo_config,
+        SUMO_CFG_FILE, SUMO_BINARY
+    )
     manager = BackgroundTrafficManager(NET_FILE)
     manager.write_route_file(num_vehicles=100)
     generate_sumo_config(NET_FILE, "background.rou.xml")
 
     env   = SUMOEnv(NET_FILE, initial_route)
     agent = DQNAgent() if DL_AVAILABLE else QTableAgent()
+    # EKLENECEK SATIR: 1 saatlik emeği (en iyi beyni) geri yükle!
+    agent.load(WEIGHTS_FILE.replace(".weights.h5", "_best.weights.h5"))
 
-    # --ignore-route-errors ekleyerek yol bulunamayan araçların simülasyonu çökertmesini engelliyoruz
-    traci.start([SUMO_BINARY, "-c", SUMO_CFG_FILE, "--no-warnings", "--no-step-log", "--ignore-route-errors"])
-    print("[Eğitim] SUMO başlatıldı.")
+    traci.start([
+        SUMO_BINARY, "-c", SUMO_CFG_FILE,
+        "--no-warnings", "--no-step-log", "--ignore-route-errors"
+    ])
+    print("[Egitim] SUMO baslatildi.")
+    print(f"[Egitim] {EPISODES} bolum x {MAX_STEPS} adim basliyor...")
 
     episode_rewards = []
+    best_avg = -float("inf")
 
     for episode in range(EPISODES):
         state   = env.reset()
         total_r = 0.0
 
         for _ in range(MAX_STEPS):
-            action              = agent.act(state)
+            action = agent.act(state)
             next_state, reward, done = env.step(action)
-            total_r            += reward
-
+            total_r += reward
             if DL_AVAILABLE:
                 agent.remember(state, action, reward, next_state, done)
                 agent.replay()
             else:
                 agent.learn(state, action, reward, next_state, done)
-
             state = next_state
             if done:
                 break
 
         episode_rewards.append(total_r)
-        avg = np.mean(episode_rewards[-20:]) if len(episode_rewards) >= 20 else total_r
+        avg = np.mean(episode_rewards[-50:]) if len(episode_rewards) >= 50 else total_r
 
-        if episode % 10 == 0:
-            print(f"  Bölüm {episode:3d}/{EPISODES} | "
-                  f"Ödül: {total_r:7.1f} | "
-                  f"Ort(20): {avg:7.1f} | "
-                  f"ε: {agent.epsilon:.3f}")
+        if episode % 50 == 0:
+            print(f"  Bolum {episode:4d}/{EPISODES} | "
+                  f"Odul: {total_r:8.1f} | "
+                  f"Ort(50): {avg:8.1f} | "
+                  f"eps: {agent.epsilon:.4f}")
+
+        if DL_AVAILABLE and avg > best_avg and episode >= 50:
+            best_avg = avg
+            agent.model.save_weights(WEIGHTS_FILE.replace(".weights.h5", "_best.weights.h5"))
+            if agent.epsilon > EPSILON_END:
+                agent.epsilon *= EPSILON_DECAY
 
     traci.close()
-
-    # Kaydet
     if DL_AVAILABLE:
         agent.save(WEIGHTS_FILE)
     else:
         agent.save(QTABLE_FILE)
-
-    print("\n[Eğitim] Tamamlandı!")
+    print("\n[Egitim] Tamamlandi!")
     return agent
 
 
-# ===================================================================
-# 5. TEST MODU
-# ===================================================================
 def test(initial_route: list[str] | None = None):
-    """Eğitilmiş ajanı tek bir bölümde çalıştırır ve metrikleri döndürür."""
     from background_traffic import SUMO_CFG_FILE, SUMO_BINARY
-
     env   = SUMOEnv(NET_FILE, initial_route)
     agent = DQNAgent() if DL_AVAILABLE else QTableAgent()
+    agent.load(WEIGHTS_FILE if DL_AVAILABLE else QTABLE_FILE)
 
-    weight_path = WEIGHTS_FILE if DL_AVAILABLE else QTABLE_FILE
-    agent.load(weight_path)
-
-    # --ignore-route-errors ekleyerek yol bulunamayan araçların simülasyonu çökertmesini engelliyoruz
-    traci.start([SUMO_BINARY, "-c", SUMO_CFG_FILE, "--no-warnings", "--no-step-log", "--ignore-route-errors"])
-    state     = env.reset()
-    total_r   = 0.0
-    steps     = 0
-    done      = False
-
+    traci.start([
+        SUMO_BINARY, "-c", SUMO_CFG_FILE,
+        "--no-warnings", "--no-step-log", "--ignore-route-errors"
+    ])
+    state, total_r, steps, done = env.reset(), 0.0, 0, False
     while not done and steps < MAX_STEPS:
-        action              = agent.act(state)
+        action = agent.act(state)
         state, reward, done = env.step(action)
-        total_r            += reward
-        steps              += 1
+        total_r += reward
+        steps   += 1
 
     traci.close()
-    print(f"\n[Test] Adım: {steps} | Toplam Ödül: {total_r:.1f}")
+    print(f"\n[Test] Adim: {steps} | Toplam Odul: {total_r:.1f}")
     return {"steps": steps, "total_reward": total_r}
 
 
-# ===================================================================
-# CLI
-# ===================================================================
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RL Ajanı — Dinamik Rota")
-    parser.add_argument("--train", action="store_true", help="Eğitim modunu başlat")
-    parser.add_argument("--test",  action="store_true", help="Test modunu başlat")
+    parser = argparse.ArgumentParser(description="RL Ajani — Dinamik Rota")
+    parser.add_argument("--train", action="store_true")
+    parser.add_argument("--test",  action="store_true")
     args = parser.parse_args()
-
     if args.train:
         train()
     elif args.test:
         test()
     else:
-        print("Kullanım: python rl_agent.py --train  veya  --test")
+        print("Kullanim: python rl_agent.py --train  veya  --test")
