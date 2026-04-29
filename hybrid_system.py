@@ -1,14 +1,3 @@
-"""
-hybrid_system.py  (v3 — Final)
-================================
-Degisiklikler v2 -> v3:
-  - estimate_co2() kaldirildi; CO2 dogrudan SUMO'nun HBEFA3 modelinden okunuyor
-  - _build_state: 8 elemanli (ilerideki 3 kenar yogunlugu dahil)
-  - Dinamik trafik esigi: sabit 2 yerine kenar serit sayisina gore hesaplaniyor
-  - REROUTE_DENSITY sabiti demo icin 2 kaliyor ama dinamik fonksiyon da mevcut
-  - NET_FILE: osm_cleaned.net.xml
-"""
-
 import os
 import time
 import numpy as np
@@ -26,7 +15,7 @@ GA_DELIVERY_PTS = 5
 GA_POPULATION   = 50
 GA_GENERATIONS  = 100
 
-REROUTE_DENSITY = 2      # Demo icin dusuk tutuldu (juri sunumu)
+REROUTE_DENSITY = 2      # Demo icin dusuk tutuldu
 MAX_SIM_STEPS   = 1800
 
 AGENT_VEHICLE_ID = "delivery_vehicle"
@@ -165,7 +154,7 @@ def run_hybrid_loop(
         "reroute_count":  0,
         "stop_count":     0,
         "total_distance": 0.0,
-        "total_co2_mg":   0.0,   # SUMO HBEFA3 modelinden mg cinsinden
+        "total_co2_mg":   0.0,
         "total_fuel_mg":  0.0,
         "mode_log":       [],
         "goal_reached":   False,
@@ -260,7 +249,7 @@ def print_report(ga_distance: float, metrics: dict):
     co2_grams = metrics.get("total_co2_mg", 0.0) / 1000.0
 
     fuel_grams = metrics.get("total_fuel_mg", 0.0) / 1000.0
-    fuel_liters = fuel_grams / 740.0  # 1 Litre benzin ortalama 740 gramdır
+    fuel_liters = fuel_grams / 740.0
 
     print("\n" + "="*60)
     print("  FINAL RAPOR")

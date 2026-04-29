@@ -1,11 +1,3 @@
-"""
-ga_optimizer.py  (v3 — Final)
-==============================
-Degisiklikler v2 -> v3:
-  - allows("passenger") filtresi eklendi (GA artik evrimlesecek)
-  - NET_FILE: osm_cleaned.net.xml
-"""
-
 import sumolib
 import random
 import numpy as np

@@ -1,11 +1,3 @@
-"""
-background_traffic.py  (v3 — Final)
-=====================================
-Degisiklikler v2 -> v3:
-  - NET_FILE: osm_cleaned.net.xml
-  - generate_sumo_config: HBEFA3 emisyon modeli aktif edildi
-"""
-
 import traci
 import random
 import sumolib
